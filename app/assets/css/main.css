@@ -1,0 +1,33 @@
+:root {
+  --vs-bg: #05070d;
+  --vs-panel: rgba(10, 16, 28, 0.82);
+  --vs-cyan: #46e6ff;
+  --vs-text: #dfe9f5;
+  --vs-muted: #8b98ad;
+  --vs-danger: #ff6b5e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--vs-bg);
+  color: var(--vs-text);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+
+button {
+  font: inherit;
+}

@@ -1,0 +1,11 @@
+{
+  // Nuxt generates .nuxt/tsconfig.json on prepare; this file sets strict defaults.
+  // Keep strict per PRD §3 (TypeScript strict).
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitAny": true,
+    "exactOptionalPropertyTypes": false
+  }
+}
