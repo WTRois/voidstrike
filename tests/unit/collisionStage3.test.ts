@@ -6,13 +6,13 @@ import { PickupPool } from '../../game/entities/Pickup'
 import { PlayerShip } from '../../game/entities/PlayerShip'
 import { CollisionSystem } from '../../game/systems/CollisionSystem'
 
-describe('CollisionSystem Tahap 3', () => {
+describe('CollisionSystem chase-cam', () => {
   it('peluru musuh mengenai pemain sekali lalu nonaktif', () => {
     const collisions = new CollisionSystem()
     const pool = new EnemyProjectilePool(4)
     const player = new PlayerShip()
     player.reset(0, 0)
-    pool.fire({ x: 0, y: 0, velocityX: -5, velocityY: 0, damage: 8 })
+    pool.fire({ x: 0, y: 0, z: 0, velocityX: 0, velocityY: 0, velocityZ: 5, damage: 8 })
     const onHit = vi.fn()
     collisions.resolveEnemyShots(pool.items, player, onHit)
     expect(onHit).toHaveBeenCalledWith(8)
@@ -26,7 +26,7 @@ describe('CollisionSystem Tahap 3', () => {
     const pool = new EnemyProjectilePool(4)
     const player = new PlayerShip()
     player.reset(0, 0)
-    pool.fire({ x: 0, y: 5, velocityX: -5, velocityY: 0, damage: 8 })
+    pool.fire({ x: 0, y: 5, z: 0, velocityX: 0, velocityY: 0, velocityZ: 5, damage: 8 })
     const onHit = vi.fn()
     collisions.resolveEnemyShots(pool.items, player, onHit)
     expect(onHit).not.toHaveBeenCalled()
@@ -37,7 +37,7 @@ describe('CollisionSystem Tahap 3', () => {
     const pool = new PickupPool(4)
     const player = new PlayerShip()
     player.reset(0, 0)
-    pool.spawn(0, 0, 'shield')
+    pool.spawn(0, 0, 0, 'shield')
     const onCollect = vi.fn()
     collisions.resolvePickups(pool.items, player, onCollect)
     expect(onCollect).toHaveBeenCalledWith('shield')
@@ -51,7 +51,7 @@ describe('CollisionSystem Tahap 3', () => {
     const player = new PlayerShip()
     player.reset(0, 0)
     const mine = new Enemy()
-    mine.spawn(0, 0, 'mine')
+    mine.spawn(0, 0, 0, 'mine')
     const onContact = vi.fn()
     collisions.resolvePlayerContact(player, [mine], onContact)
     expect(mine.active).toBe(false)

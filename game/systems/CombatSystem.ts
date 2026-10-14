@@ -3,13 +3,22 @@ import { PICKUP, PRIMARY, SPECIAL } from '../config/gameBalance'
 export interface PrimaryFireOrigin {
   x: number
   y: number
-  fire: (x: number, y: number) => void
+  z: number
+  fire: (x: number, y: number, z: number) => void
 }
 
 export interface SpecialFireOrigin {
   x: number
   y: number
-  launch: (x: number, y: number, velocityX: number, velocityY: number) => void
+  z: number
+  launch: (
+    x: number,
+    y: number,
+    z: number,
+    velocityX: number,
+    velocityY: number,
+    velocityZ: number,
+  ) => void
 }
 
 /**
@@ -35,18 +44,18 @@ export class CombatSystem {
     }
     this.cooldown -= dtSeconds
     while (this.cooldown <= 0) {
-      origin.fire(origin.x, origin.y)
+      origin.fire(origin.x, origin.y, origin.z)
       this.cooldown += PRIMARY.cooldownSeconds
     }
   }
 
-  /** Salvo 3 misil; false + tanpa efek saat cooldown aktif (PRD §8.4). */
+  /** Salvo 3 misil ke depan (−Z) dengan sebaran vertikal; false saat cooldown (PRD §8.4). */
   trySpecial(origin: SpecialFireOrigin): boolean {
     if (this.specialRemaining > 0) {
       return false
     }
     for (const velocityY of SPECIAL.spreadVelocityY) {
-      origin.launch(origin.x, origin.y, SPECIAL.missileSpeed, velocityY)
+      origin.launch(origin.x, origin.y, origin.z, 0, velocityY, -SPECIAL.missileSpeed)
     }
     this.specialRemaining = SPECIAL.cooldownSeconds
     return true

@@ -3,6 +3,21 @@
 Catatan keputusan teknis kecil yang belum ditentukan PRD (PRD §0 poin 10).
 Pilih opsi paling sederhana, maintainable, ringan.
 
+## Tahap 8 — Konversi chase-cam ala Vendetta (2026-10-14)
+
+- **Pengguna meminta game "beneran 3D" seperti Vendetta Online** (chase-cam belakang kapal, terbang masuk layar). PRD §1.2/§6/§8/§11/§23 diamendemen: side-view → chase-cam. Ini override eksplisit pengguna, bukan scope-creep.
+- **Forward = −Z.** Kapal di bidang z=0 tengah-bawah; musuh spawn z=−20 mendekat +Z; cull z>7; tembakan pemain dibuang z<−34. Semua di `CHASE` (gameBalance).
+- **Bidang gerak pemain tetap (tidak terbang bebas 3D):** dodge di X/Y layar. Alasan: terbaca arcade, sentuh tetap drag-2D, collision adil. Kedalaman hanya milik musuh/proyektil/pickup.
+- **Spawn di koridor bidang kapal + converge 0,7 u/s** (bukan frustum jauh yang lebar): percobaan pertama spawn frustum-penuh membuat musuh lewat di tepi tanpa perjumpaan (0 kill/9 dtk). Pelajaran: di chase-cam, spawn harus menjamin engagement.
+- **Tembakan boss 3D terarah** (offset XY di titik bidik, bukan sudut planar): salvo 3 + fan 5, dinormalisasi penuh XYZ.
+- **Kamera follow faktor 0,5/0,35 + tatap depan**: kapal selalu dalam bingkai (matematika offset diverifikasi + smoke tepi zona). Bounds gameplay tetap kotak tetap — aproksimasi yang aman.
+- **Starfield streaming +Z** (5/9/15 u/s per lapis) + nebula parallax XY ikut kapal. Sensasi terbang maju tanpa menggerakkan kapal.
+- **Orientasi ulang model**: pemain yaw 180° (mesin terlihat), musuh/boss pitch +90° (menghadap kamera). Proyektil/misil geometri diputar ke sumbu Z. Spin asteroid → sumbu X (tumble ke kamera).
+- **Side-view lama dihapus total** (tidak dipertahankan sebagai mode): `computeSpawnX`, `circleHit`, `muzzleOffsetX`, zona pita-kiri dibuang. Test ditulis ulang (129 test); tidak ada test dipertahankan dengan perilaku usang.
+- **Bug kecil tertangkap smoke**: boss bar menutupi skor di portrait ≤640px → bar pindah ke bawah skor (khusus mobile).
+- **Profiling (headless):** combat 60,3 FPS / 49 draw / ~197K tri (asteroid dekat); boss 60,3 FPS / 38 draw. Draw call tidak naik vs Tahap 7 (merge bertahan).
+- **E2E chase-cam:** kill organik, shield 100→34→mati (damage 3D konsisten), mati wave-3 boss, NEW BEST persist, restart bersih, portrait layak, 0 console error.
+
 ## Tahap 7 (lanjutan) — Model musuh, hazard dan boss (2026-10-14)
 
 - **5 GLB dipasang ke slot pool yang sama** (`scout/interceptor/heavy/asteroid` + `boss-01`): template dinormalisasi sekali, tiap slot memakai `clone(true)` berbagi geometri/material. Kontrak sync by-name (`kind-X`) tak berubah; mine tetap placeholder (tak ada file).

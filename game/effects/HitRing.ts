@@ -37,14 +37,14 @@ export class HitRingPool {
     }
   }
 
-  spawn(x: number, y: number, color: number, scale = 1): void {
+  spawn(x: number, y: number, color: number, scale = 1, z = 1): void {
     for (const ring of this.rings) {
       if (!ring.active) {
         ring.active = true
         ring.life = RING_LIFE
         ring.scale = scale
         ring.mesh.visible = true
-        ring.mesh.position.set(x, y, 1)
+        ring.mesh.position.set(x, y, z)
         ring.mesh.material.color.setHex(color)
         return
       }

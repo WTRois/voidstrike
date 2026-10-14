@@ -293,5 +293,16 @@ function handleSpecial(): void {
   .hud-score {
     font-size: 0.65rem;
   }
+
+  .hud-boss {
+    top: 48px;
+    left: 12px;
+    transform: none;
+    max-width: calc(100% - 132px);
+  }
+
+  .boss-track {
+    width: 22vw;
+  }
 }
 </style>

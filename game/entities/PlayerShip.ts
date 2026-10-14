@@ -10,6 +10,8 @@ import { HealthSystem } from '../systems/HealthSystem'
 export class PlayerShip {
   x = 0
   y = 0
+  /** Bidang kapal chase-cam (tetap; demi interface DamageDealer 3D). */
+  z = 0
   readonly radius = PLAYER.radius
   readonly health = new HealthSystem()
 

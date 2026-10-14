@@ -4,8 +4,8 @@
       <p class="eyebrow">VOIDSTRIKE: STARFALL</p>
       <h1>VOIDSTRIKE: STARFALL</h1>
       <p class="subtitle">
-        3D side-scrolling arcade shooter. Single-player, tanpa login. Endless wave, boss VOIDWARDEN,
-        skor tersimpan lokal — mainkan langsung di browser.
+        3D chase-cam rail shooter ala Vendetta Online. Single-player, tanpa login. Endless wave,
+        boss VOIDWARDEN, skor tersimpan lokal — mainkan langsung di browser.
       </p>
     </header>
 

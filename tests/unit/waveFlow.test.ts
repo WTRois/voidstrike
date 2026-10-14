@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { BOSS } from '../../game/config/gameBalance'
+import { BOSS, CHASE } from '../../game/config/gameBalance'
 import { Boss } from '../../game/entities/Boss'
 import { Enemy } from '../../game/entities/Enemy'
 import { ScoreSystem } from '../../game/systems/ScoreSystem'
@@ -19,7 +19,7 @@ describe('wave flow headless', () => {
     let completed = false
     for (let i = 0; i < quota; i += 1) {
       const enemy = new Enemy()
-      enemy.spawn(5, 0, 'scout')
+      enemy.spawn(0, 0, -10, 'scout')
       if (enemy.damage(99)) {
         score.addKill(enemy.kind)
         completed = waves.registerKill()
@@ -39,10 +39,10 @@ describe('wave flow headless', () => {
     waves.reset(3)
     expect(waves.isBossWave()).toBe(true)
     const boss = new Boss()
-    boss.spawn(12, 6, 0, BOSS.hpBase + BOSS.hpPerBoss * 1)
+    boss.spawn(0, 0, CHASE.bossEnterZ, CHASE.bossZ, BOSS.hpBase + BOSS.hpPerBoss * 1)
     waves.onBossSpawned()
     expect(waves.registerKill()).toBe(false)
-    boss.update(BOSS.telegraphSeconds, 0, 0, -5, 5)
+    boss.update(BOSS.telegraphSeconds, 0, 0, 0, { minX: -9, maxX: 9, minY: -5, maxY: 5 })
     expect(boss.isTelegraphing).toBe(false)
     let died = false
     for (let i = 0; i < 200 && !died; i += 1) {

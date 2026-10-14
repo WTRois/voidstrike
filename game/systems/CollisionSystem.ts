@@ -7,25 +7,29 @@ import type { PlayerShip } from '../entities/PlayerShip'
 export interface DamageDealer {
   x: number
   y: number
+  z: number
   radius: number
   active: boolean
   damage: number
   deactivate: () => void
 }
 
-/** Hitbox lingkaran 2D pada bidang XY; visual terpisah dari collision (PRD §11.5). */
-export function circleHit(
+/** Hitbox bola 3D; visual terpisah dari collision (PRD §11.5). */
+export function sphereHit(
   ax: number,
   ay: number,
+  az: number,
   aRadius: number,
   bx: number,
   by: number,
+  bz: number,
   bRadius: number,
 ): boolean {
   const dx = ax - bx
   const dy = ay - by
+  const dz = az - bz
   const range = aRadius + bRadius
-  return dx * dx + dy * dy <= range * range
+  return dx * dx + dy * dy + dz * dz <= range * range
 }
 
 /**
@@ -46,7 +50,18 @@ export class CollisionSystem {
         if (!enemy.active) {
           continue
         }
-        if (circleHit(dealer.x, dealer.y, dealer.radius, enemy.x, enemy.y, enemy.radius)) {
+        if (
+          sphereHit(
+            dealer.x,
+            dealer.y,
+            dealer.z,
+            dealer.radius,
+            enemy.x,
+            enemy.y,
+            enemy.z,
+            enemy.radius,
+          )
+        ) {
           dealer.deactivate()
           if (enemy.damage(dealer.damage)) {
             onKill(enemy, dealer)
@@ -66,7 +81,9 @@ export class CollisionSystem {
       if (!shot.active) {
         continue
       }
-      if (circleHit(shot.x, shot.y, shot.radius, player.x, player.y, player.radius)) {
+      if (
+        sphereHit(shot.x, shot.y, shot.z, shot.radius, player.x, player.y, player.z, player.radius)
+      ) {
         shot.deactivate()
         onHit(shot.damage)
       }
@@ -82,7 +99,18 @@ export class CollisionSystem {
       if (!pickup.active) {
         continue
       }
-      if (circleHit(pickup.x, pickup.y, pickup.radius, player.x, player.y, player.radius)) {
+      if (
+        sphereHit(
+          pickup.x,
+          pickup.y,
+          pickup.z,
+          pickup.radius,
+          player.x,
+          player.y,
+          player.z,
+          player.radius,
+        )
+      ) {
         pickup.deactivate()
         onCollect(pickup.kind)
       }
@@ -98,7 +126,18 @@ export class CollisionSystem {
       if (!enemy.active) {
         continue
       }
-      if (circleHit(player.x, player.y, player.radius, enemy.x, enemy.y, enemy.radius)) {
+      if (
+        sphereHit(
+          player.x,
+          player.y,
+          player.z,
+          player.radius,
+          enemy.x,
+          enemy.y,
+          enemy.z,
+          enemy.radius,
+        )
+      ) {
         enemy.deactivate()
         onContact(enemy)
       }

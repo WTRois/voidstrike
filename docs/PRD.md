@@ -4,7 +4,7 @@
 > **Status:** Siap dijadikan baseline implementasi MVP  
 > **Versi:** 1.0  
 > **Bahasa:** Indonesia  
-> **Target:** Game web 3D sci-fi side-scrolling endless runner/shooter  
+> **Target:** Game web 3D sci-fi chase-cam rail shooter (ala Vendetta Online)  
 > **Stack wajib:** Nuxt 4, Vue 3, TypeScript, Three.js, Bun  
 > **Nama kerja:** VOIDSTRIKE: STARFALL — nama dapat diganti sebelum rilis.
 
@@ -43,10 +43,11 @@ Membangun game browser 3D sci-fi yang terasa cepat, sinematik, dan mudah dimaink
 
 ### 1.2 Konsep inti
 
-- Genre: **3D side-scrolling arcade shooter dengan endless progression**.
+- Genre: **3D chase-cam rail shooter dengan endless progression** (Tahap 8:
+  kamera di belakang kapal ala Vendetta Online; sebelumnya side-view).
 - Inspirasi gameplay: ritme sederhana ala game shooter side-scrolling klasik seperti Space Impact, diperluas dengan kedalaman 3D, health/shield, senjata utama otomatis, senjata khusus manual, pickup, wave, dan boss.
-- Sudut pandang: **side view tetap**. Objek berupa model 3D, tetapi permainan bergerak terutama di bidang horizontal/vertikal agar mudah dibaca.
-- Pesawat pemain: desain terinspirasi referensi pengguna — siluet stealth tajam, hull hitam/abu-abu metalik, panel mekanis kompleks, aksen cahaya cyan/biru dingin. Model aktual belum tersedia dan harus diperlakukan sebagai pekerjaan asset terpisah.
+- Sudut pandang: **chase-cam mengikuti kapal dari belakang/atas**. Objek berupa model 3D, permainan bergerak di bidang layar (X/Y) sambil dunia mengalir ke arah kamera (terbang maju).
+- Pesawat pemain: desain terinspirasi referensi pengguna — siluet stealth tajam, hull hitam/abu-abu metalik, panel mekanis kompleks, aksen cahaya cyan/biru dingin. Terlihat dari belakang (mesin) saat bermain.
 - Mode: single-player, satu sesi berjalan di browser.
 - Penyimpanan: best score, top scores lokal, statistik sesi, dan preferensi disimpan di browser.
 - Orientasi tampilan: landscape disarankan di ponsel; desktop tetap didukung. Jangan memblokir permainan hanya karena perangkat portrait.
@@ -130,7 +131,7 @@ Membangun game browser 3D sci-fi yang terasa cepat, sinematik, dan mudah dimaink
 **Game core**
 
 - State machine: boot, loading, menu, playing, paused, game over.
-- Scene 3D side-view yang responsif.
+- Scene 3D chase-cam yang responsif.
 - Pesawat pemain berbasis GLB jika asset telah disediakan; placeholder 3D jika belum.
 - Gerakan pemain horizontal/vertikal dalam batas area bermain.
 - Primary weapon auto-fire.
@@ -196,7 +197,7 @@ Membangun game browser 3D sci-fi yang terasa cepat, sinematik, dan mudah dimaink
 1. **Boot/load:** validasi WebGL, siapkan renderer, load asset yang tersedia, dan siapkan fallback.
 2. **Menu:** pengguna melihat judul, best score, kontrol, pengaturan, lalu memilih Play.
 3. **Start run:** reset health/shield, score, cooldown, wave, spawn timers, enemy/projectile/pickup pools dan boss state.
-4. **Combat:** pesawat bergerak, primary weapon menembak otomatis, musuh/hazard masuk dari sisi kanan, pemain menghindar, dan special weapon digunakan pada momen tepat.
+4. **Combat:** pesawat bergerak di bidang layar, primary weapon menembak otomatis ke depan, musuh/hazard mendekat dari depan, pemain menghindar, dan special weapon digunakan pada momen tepat.
 5. **Damage/recovery:** shield menyerap damage lebih dahulu, hull menjadi pertahanan terakhir, pickups membantu bertahan.
 6. **Wave transition:** setelah jumlah unit wave selesai dan area ancaman dibersihkan, wave berikutnya dimulai. Pada wave 3, 6, 9, dan seterusnya, boss muncul.
 7. **Boss encounter:** boss masuk dengan telegraph, memakai pola serangan, memiliki health bar, dan memberi bonus score ketika dikalahkan.
@@ -215,21 +216,28 @@ Membangun game browser 3D sci-fi yang terasa cepat, sinematik, dan mudah dimaink
 
 ## 6. Kamera, dunia, dan koordinat game
 
-### 6.1 Tampilan
+### 6.1 Tampilan (chase-cam, Tahap 8 — menggantikan side-view)
 
-- Gunakan kamera side-view yang stabil. **Rekomendasi: `OrthographicCamera`** untuk menjaga ukuran objek dan fairness collision pada area 2.5D.
-- Objek tetap berupa mesh 3D dengan pencahayaan, material metalik, glow/emissive, dan sedikit perbedaan kedalaman.
-- Kamera berada di sumbu `+Z` dan melihat ke arah `-Z`; bidang gameplay utama adalah XY.
-- Sumbu `+X` berarti ke kanan layar; musuh dan hazard bergerak dari kanan ke kiri.
-- Pesawat menghadap ke `+X` (kanan). Jika model GLB mempunyai orientasi forward yang berbeda, koreksi melalui wrapper `THREE.Group`; jangan merusak asset sumber.
-- Kedalaman Z digunakan untuk parallax dan komposisi, bukan sebagai jalur gerak inti. Hindari mekanik kedalaman yang tidak terbaca dari kamera samping.
+- Gunakan kamera chase yang mengikuti kapal dari belakang/atas. **Tetap
+  `PerspectiveCamera`**, kini menatap ke depan (−Z, masuk layar).
+- Objek tetap berupa mesh 3D dengan pencahayaan, material metalik, glow/emissive, dan perbedaan kedalaman penuh.
+- Kamera mengikuti posisi kapal dengan faktor < 1 (0,5 horizontal; vertikal
+  di sekitar tinggi dasar) agar kapal selalu dalam bingkai dengan margin;
+  bounds gameplay tetap kotak tetap pada bidang kapal (z=0).
+- Sumbu `+X` berarti ke kanan layar; sumbu `+Y` ke atas layar; sumbu `−Z`
+  berarti jauh ke depan (musuh datang dari depan, terbang ke arah kamera).
+- Pesawat menghadap ke `−Z` (masuk layar, mesin terlihat). Model GLB yang
+  berhidung +Z diputar 180° via wrapper `THREE.Group`; musuh berhidung +Y
+  memakai pitch +90° agar menghadap kamera (+Z).
+- Zona gerak pemain: seluruh layar dikurangi margin (bukan pita kiri).
 
 ### 6.2 Responsivitas dunia
 
-- Tentukan world bounds berdasarkan aspect ratio viewport dan camera frustum.
-- Jaga zona gerak pemain pada bagian kiri layar, tetapi cukup luas untuk menghindari serangan vertikal.
-- Spawn musuh di luar batas kanan viewport dengan margin, bukan muncul mendadak di tengah layar.
+- Tentukan world bounds dari frustum kamera pada bidang kapal (z=0).
+- Jaga zona gerak pemain di seluruh layar dengan margin dalam yang cukup untuk menghindari serangan.
+- Spawn musuh jauh di depan (z negatif) dalam koridor bidang kapal agar selalu terjadi perjumpaan; musuh cerdas melengkung (converge) ke arah kapal — nuansa dogfight.
 - Spawn hazard, pickup, dan proyektil dengan margin yang cukup agar tidak tertutup HUD.
+- Entity yang melewati kamera dibuang (cullZ); tembakan pemain dibuang di kedalaman killZ.
 - Pada landscape mobile, pertahankan arena selebar mungkin. Pada portrait, skala kamera/arena dan zona pemain disesuaikan; jangan membuat hitbox berubah relatif terhadap visual secara ekstrem.
 
 ### 6.3 Latar belakang
@@ -296,7 +304,7 @@ Angka pada bagian ini adalah baseline balancing awal, bukan konstanta yang boleh
 
 ### 8.3 Primary weapon — auto-fire
 
-- Menembak otomatis ke arah `+X` saat state `playing`.
+- Menembak otomatis ke arah `−Z` (masuk layar) saat state `playing`.
 - Baseline cooldown: 0,22 detik per shot.
 - Projectile punya lifetime dan batas aktif; projectile yang lewat layar dibuang kembali ke pool.
 - Hit enemy menyebabkan damage dan hit feedback.
@@ -307,7 +315,7 @@ Angka pada bagian ini adalah baseline balancing awal, bukan konstanta yang boleh
 
 - Tombol desktop: `Space`. Tombol mobile: tombol khusus di HUD.
 - Baseline cooldown: 8 detik. UI menampilkan sisa cooldown secara jelas.
-- Aksi: meluncurkan salvo 3 misil/energi ke arah kanan dengan sedikit sebaran vertikal. Misil mengikuti arah target musuh terdekat dengan steering yang dibatasi, atau menggunakan lintasan menuju target saat ditembak bila homing dinilai terlalu kompleks. Pilih dan implementasikan satu metode konsisten.
+- Aksi: meluncurkan salvo 3 misil/energi ke depan dengan sedikit sebaran vertikal. Misil mengikuti arah target musuh terdekat dengan steering yang dibatasi, atau menggunakan lintasan menuju target saat ditembak bila homing dinilai terlalu kompleks. Pilih dan implementasikan satu metode konsisten.
 - Special weapon memberi damage lebih tinggi daripada primary shot dan bisa melukai boss.
 - Ketika cooldown aktif, input ditolak dan UI memberi feedback singkat; jangan menggunakan dialog modal.
 - Cooldown di-reset saat sesi baru dimulai.
@@ -315,21 +323,22 @@ Angka pada bagian ini adalah baseline balancing awal, bukan konstanta yang boleh
 
 ### 8.5 Musuh
 
-Minimal tiga archetype MVP. Masing-masing punya hit points, skor, kecepatan, warna/siluet pembeda, pola gerak, dan batas spawn.
+Minimal tiga archetype MVP. Masing-masing punya hit points, skor, kecepatan
+mendekat (+Z ke arah kamera), warna/siluet pembeda, pola gerak, dan batas spawn.
 
-| Archetype   | Perilaku                                                               |                 Baseline HP |    Nilai skor awal |
-| ----------- | ---------------------------------------------------------------------- | --------------------------: | -----------------: |
-| Scout       | Cepat, bergerak lurus dari kanan ke kiri                               |                           2 |                100 |
-| Interceptor | Bergerak dengan pola vertikal ringan; dapat menembak sesekali          |                           4 |                200 |
-| Heavy       | Lambat, HP lebih tinggi, peluru lebih jarang tetapi lebih berbahaya    |                          10 |                400 |
-| Boss        | Bergerak terbatas di sisi kanan, memiliki health bar dan pola serangan | Konfigurasi khusus per fase | 1.500 + bonus wave |
+| Archetype   | Perilaku                                                            |                 Baseline HP |    Nilai skor awal |
+| ----------- | ------------------------------------------------------------------- | --------------------------: | -----------------: |
+| Scout       | Cepat, mendekat lurus ke arah kamera                                |                           2 |                100 |
+| Interceptor | Bergerak dengan pola vertikal ringan; dapat menembak sesekali       |                           4 |                200 |
+| Heavy       | Lambat, HP lebih tinggi, peluru lebih jarang tetapi lebih berbahaya |                          10 |                400 |
+| Boss        | Hover di depan kapal, memiliki health bar dan pola serangan         | Konfigurasi khusus per fase | 1.500 + bonus wave |
 
 Angka damage projectile dan HP musuh harus tersentralisasi dalam konfigurasi. Difficulty scaling tidak boleh membuat seluruh musuh mendapat HP/kecepatan tak terbatas.
 
 ### 8.6 Hazard
 
-- **Asteroid:** bergerak dari kanan ke kiri, dapat dihancurkan atau dihindari sesuai nilai HP yang dikonfigurasi.
-- **Debris/energy mine:** hazard dengan siluet/indikator berbeda; sebaiknya bergerak lambat atau memiliki telegraph yang terlihat.
+- **Asteroid:** muncul jauh di depan dan mendekat ke kamera, dapat dihancurkan atau dihindari sesuai nilai HP yang dikonfigurasi.
+- **Debris/energy mine:** hazard dengan siluet/indikator berbeda; bergerak lambat ke arah kamera.
 - Semua hazard mempunyai hitbox yang sesuai dengan siluet visual dan dapat memberi damage ke pemain.
 - Hindari spawn tepat di posisi pemain. Beri jarak reaksi minimum dan batas jumlah hazard serentak.
 
@@ -356,7 +365,7 @@ Pickup harus tampil berbeda dan kontras dengan background. Pickup yang sudah dia
 - Wave bernomor naik tanpa batas secara konseptual, tetapi difficulty dibatasi dengan kurva dan batas maksimum.
 - Wave biasa memunculkan kombinasi musuh/hazard dalam kelompok kecil; hindari spawn berlebihan pada layar kecil.
 - Boss muncul pada akhir setiap wave ketiga: wave 3, 6, 9, dan seterusnya.
-- Boss muncul setelah telegraph singkat, bergerak di area kanan, mempunyai health bar di UI, dan minimal dua pola serangan sederhana (misalnya aimed salvo dan spread pattern).
+- Boss muncul setelah telegraph singkat, hover di depan kapal, mempunyai health bar di UI, dan minimal dua pola serangan sederhana (misalnya aimed salvo dan spread pattern).
 - Setelah boss kalah: beri bonus skor, efek destruction yang jelas, pickup dengan probabilitas konfigurasi, lalu mulai wave selanjutnya.
 - Wave transition tidak boleh dimulai saat masih ada boss aktif.
 - Pada kematian pemain, hentikan spawn dan simulasi gameplay segera; jalankan hanya animasi game-over singkat jika diperlukan.
@@ -379,7 +388,7 @@ Pickup harus tampil berbeda dan kontras dengan background. Pickup yang sudah dia
 
 - Tema: sci-fi militer/stealth, ruang angkasa dingin, material metal hitam dan abu-abu, aksen cyan/biru energi.
 - Pesawat pemain mengacu pada gambar referensi: badan rendah dan tajam, hidung runcing, sayap/pod mekanis, panel armor bertumpuk, mesin belakang, aksen cahaya terbatas.
-- Jangan berusaha menyalin setiap detail visual dari satu gambar sebagai geometri kompleks pada tahap awal. Utamakan siluet dari kamera side-view dan keterbacaan saat objek kecil.
+- Jangan berusaha menyalin setiap detail visual dari satu gambar sebagai geometri kompleks pada tahap awal. Utamakan siluet dari kamera chase dan keterbacaan saat objek kecil.
 - UI memakai panel gelap semi-transparan, tipografi sans-serif yang jelas, indikator energi cyan, damage/hazard berwarna hangat, serta kontras tinggi.
 - Efek partikel/glow harus hemat dan tidak mengaburkan bullet/hazard.
 
@@ -533,7 +542,7 @@ Aturan:
 
 ### 11.5 Collision
 
-- MVP memakai hitbox arcade sederhana, misalnya AABB atau lingkaran 2D pada bidang XY.
+- MVP memakai hitbox arcade sederhana: bola 3D (jarak Euclidean + jumlah radius) karena gameplay chase-cam bergerak di ruang XYZ.
 - Pisahkan `visual transform` dari `collision bounds`.
 - Hitbox pemain dibuat sedikit lebih kecil daripada siluet model agar terasa adil.
 - Semua entity yang collision-capable harus mengimplementasikan kontrak sejenis: posisi, radius/bounds, team/category, damage/health bila relevan, status aktif.
@@ -875,7 +884,7 @@ Minimal cover:
 - [ ] Primary weapon menembak otomatis hanya ketika playing.
 - [ ] Special weapon dapat dipicu manual dengan Space pada desktop dan tombol pada mobile.
 - [ ] Special weapon cooldown terlihat dan benar-benar membatasi penggunaan.
-- [ ] Musuh/hazard datang dari sisi kanan dan dapat dihancurkan/dihindari.
+- [ ] Musuh/hazard mendekat dari depan dan dapat dihancurkan/dihindari.
 - [ ] Proyektil musuh dapat mengenai pemain dengan collision yang konsisten.
 - [ ] Shield menyerap damage sebelum hull; shield regen mengikuti delay dan laju konfigurasi.
 - [ ] Pickup yang diambil hanya memberi efek satu kali.
@@ -1070,13 +1079,13 @@ Pertimbangkan hanya berdasarkan feedback dan metrik penggunaan yang benar-benar 
 
 Agar coding agent tidak mengulang pertanyaan yang sudah dijawab, anggap keputusan ini final kecuali pengguna secara eksplisit mengubah PRD:
 
-- **Genre:** 3D side-scrolling endless shooter, terinspirasi gameplay Space Impact.
+- **Genre:** 3D chase-cam rail shooter ala Vendetta Online, terinspirasi gameplay Space Impact.
 - **Visual pesawat:** stealth sci-fi hitam/abu metalik dengan aksen cyan, terinspirasi gambar lampiran.
 - **Model aktual:** belum ada; placeholder wajib berfungsi.
 - **Primary weapon:** auto-fire.
 - **Special weapon:** input manual, cooldown, salvo 3 misil/energi.
 - **Durability:** hull HP + energy shield; shield menyerap damage dahulu dan regenerasi setelah delay.
-- **Musuh/hazard:** scout, interceptor, heavy, asteroid/debris, enemy projectiles, pickups.
+- **Musuh/hazard:** scout, interceptor, heavy, asteroid/debris, enemy projectiles 3D, pickups; musuh mendekat dari depan (+Z).
 - **Progression:** endless waves; boss di wave 3, 6, 9, dan seterusnya.
 - **Platform:** desktop dan mobile web.
 - **Backend:** tidak ada untuk MVP; skor dan settings lokal.

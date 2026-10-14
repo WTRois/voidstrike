@@ -31,13 +31,13 @@ export class MuzzleFlashPool {
     }
   }
 
-  spawn(x: number, y: number): void {
+  spawn(x: number, y: number, z = 1): void {
     for (const flash of this.flashes) {
       if (!flash.active) {
         flash.active = true
         flash.life = FX.muzzleLifeSeconds
         flash.mesh.visible = true
-        flash.mesh.position.set(x, y, 1)
+        flash.mesh.position.set(x, y, z)
         flash.mesh.rotation.z = (Math.random() - 0.5) * 0.6
         const scale = 0.8 + Math.random() * 0.5
         flash.mesh.scale.set(scale, scale, 1)

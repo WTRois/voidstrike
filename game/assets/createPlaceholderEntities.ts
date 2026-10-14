@@ -49,9 +49,9 @@ export function createPlaceholderScout(): THREE.Group {
 const PROJECTILE_MATERIAL = (): THREE.MeshBasicMaterial =>
   new THREE.MeshBasicMaterial({ color: 0x7df3ff })
 
-/** Slug peluru pemain: murah (Basic, tanpa lighting) dan kontras dengan musuh. */
+/** Slug peluru pemain: memanjang −Z, murah (Basic) dan kontras dengan musuh. */
 export function createPlayerProjectileMesh(): THREE.Mesh {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.13, 0.13), PROJECTILE_MATERIAL())
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.7), PROJECTILE_MATERIAL())
   mesh.visible = false
   return mesh
 }
@@ -250,10 +250,10 @@ export function createPickupSlotMesh(): THREE.Group {
   slot.visible = false
   return slot
 }
-/** Misil pemain: slug oranye lebih besar dari peluru primer. */
+/** Misil pemain: slug oranye lebih besar dari peluru primer, sumbu −Z. */
 export function createMissileMesh(): THREE.Mesh {
   const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(0.7, 0.2, 0.2),
+    new THREE.BoxGeometry(0.2, 0.2, 0.8),
     new THREE.MeshBasicMaterial({ color: 0xffb03d }),
   )
   mesh.visible = false

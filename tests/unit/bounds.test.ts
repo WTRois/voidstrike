@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { computeBounds, computePlayerZone, computeSpawnX } from '../../game/utils/bounds'
+import { WORLD } from '../../game/config/gameBalance'
+import { computeBounds, computePlayerZone } from '../../game/utils/bounds'
 
 describe('bounds', () => {
   it('menghitung batas simetris dari halfHeight dan aspect', () => {
@@ -16,17 +17,12 @@ describe('bounds', () => {
     }
   })
 
-  it('zona pemain berada di pita kiri dalam batas dunia', () => {
+  it('zona pemain chase-cam: seluruh layar dikurangi margin', () => {
     const bounds = computeBounds(5, 16 / 9)
     const zone = computePlayerZone(bounds)
-    expect(zone.minX).toBeGreaterThan(bounds.minX)
-    expect(zone.maxX).toBeLessThan(bounds.maxX)
-    expect(zone.minY).toBeGreaterThan(bounds.minY)
-    expect(zone.maxY).toBeLessThan(bounds.maxY)
-  })
-
-  it('spawn X berada di luar batas kanan + margin', () => {
-    const bounds = computeBounds(5, 16 / 9)
-    expect(computeSpawnX(bounds)).toBe(bounds.maxX + 2)
+    expect(zone.minX).toBeCloseTo(bounds.minX + WORLD.playerMargin, 10)
+    expect(zone.maxX).toBeCloseTo(bounds.maxX - WORLD.playerMargin, 10)
+    expect(zone.minY).toBeCloseTo(bounds.minY + WORLD.playerMargin, 10)
+    expect(zone.maxY).toBeCloseTo(bounds.maxY - WORLD.playerMargin, 10)
   })
 })

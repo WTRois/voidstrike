@@ -2,6 +2,7 @@ import * as THREE from 'three'
 
 import {
   BOSS,
+  CHASE,
   ENTITY_MODEL,
   FX,
   PICKUP,
@@ -35,7 +36,7 @@ import { PickupPool, type PickupKind } from '../entities/Pickup'
 import { PlayerShip } from '../entities/PlayerShip'
 import { ProjectilePool } from '../entities/Projectile'
 import { InputManager } from '../input/InputManager'
-import { computePlayerZone, computeSpawnX } from '../utils/bounds'
+import { computePlayerZone } from '../utils/bounds'
 import { disposeObject3D } from '../utils/dispose'
 import { CameraController } from './CameraController'
 import { EventEmitter } from './EventEmitter'
@@ -43,7 +44,7 @@ import { GameLoop } from './GameLoop'
 import type { GameState } from './GameStateMachine'
 import { GameStateMachine } from './GameStateMachine'
 import { createLights, createScene } from './SceneFactory'
-import { CollisionSystem, circleHit, type DamageDealer } from '../systems/CollisionSystem'
+import { CollisionSystem, sphereHit, type DamageDealer } from '../systems/CollisionSystem'
 import { CombatSystem } from '../systems/CombatSystem'
 import { ScoreSystem } from '../systems/ScoreSystem'
 import { WaveSystem } from '../systems/WaveSystem'
@@ -227,9 +228,11 @@ export class GameEngine {
     placeholder.name = 'placeholder-ship'
     this.ship.add(placeholder)
     const zone = computePlayerZone(bounds)
-    this.player.reset(zone.minX + 2.2, 0)
+    this.player.reset(PLAYER.startX, PLAYER.startY)
+    this.player.clampToZone(zone)
     this.lastShipX = this.player.x
     this.lastShipY = this.player.y
+    this.cameraController.snap(this.player.x, this.player.y)
     this.ship.position.set(this.player.x, this.player.y, 0)
     this.scene.add(this.ship)
     if (options.shipModelUrl !== undefined && options.shipModelUrl !== '') {
@@ -443,10 +446,11 @@ export class GameEngine {
       return false
     }
     const fired = this.combat.trySpecial({
-      x: this.player.x + PLAYER.muzzleOffsetX,
+      x: this.player.x,
       y: this.player.y,
-      launch: (x, y, velocityX, velocityY) => {
-        this.missiles.launch(x, y, velocityX, velocityY)
+      z: CHASE.muzzleZ,
+      launch: (x, y, z, velocityX, velocityY, velocityZ) => {
+        this.missiles.launch(x, y, z, velocityX, velocityY, velocityZ)
       },
     })
     if (fired) {
@@ -519,7 +523,11 @@ export class GameEngine {
     this.clearEntities()
     const bounds = this.cameraController.getBounds()
     const zone = computePlayerZone(bounds)
-    this.player.reset(zone.minX + 2.2, 0)
+    this.player.reset(PLAYER.startX, PLAYER.startY)
+    this.player.clampToZone(zone)
+    this.lastShipX = this.player.x
+    this.lastShipY = this.player.y
+    this.cameraController.snap(this.player.x, this.player.y)
     this.lastShipX = this.player.x
     this.lastShipY = this.player.y
     this.player.health.reset()
@@ -534,7 +542,7 @@ export class GameEngine {
       this.directorTimers[kind] = 0
     }
     if (this.waves.isBossWave()) {
-      this.spawnBoss(bounds)
+      this.spawnBoss(computePlayerZone(this.cameraController.getBounds()))
     }
     this.input.clear()
   }
@@ -577,6 +585,7 @@ export class GameEngine {
     if (this.disposed) {
       return
     }
+    this.cameraController.follow(dtSeconds, this.player.x, this.player.y)
     this.updateShake(dtSeconds)
     // Efek destruction singkat sebelum game over (PRD §8.1).
     if (this.dying) {
@@ -596,7 +605,7 @@ export class GameEngine {
     }
     this.elapsedSeconds += dtSeconds
     const bounds = this.cameraController.getBounds()
-    this.starfield.update(dtSeconds, bounds, this.player.y)
+    this.starfield.update(dtSeconds, bounds, this.player.x, this.player.y)
     this.score.addSurvival(dtSeconds)
 
     const zone = computePlayerZone(bounds)
@@ -606,23 +615,30 @@ export class GameEngine {
     this.player.health.update(dtSeconds)
 
     this.combat.update(dtSeconds, true, {
-      x: this.player.x + PLAYER.muzzleOffsetX,
+      x: this.player.x,
       y: this.player.y,
-      fire: (x, y) => {
-        this.projectiles.fire({ x, y, velocityX: PRIMARY.projectileSpeed, damage: PRIMARY.damage })
-        this.muzzle.spawn(x, y)
+      z: CHASE.muzzleZ,
+      fire: (x, y, z) => {
+        this.projectiles.fire({
+          x,
+          y,
+          z,
+          velocityZ: -PRIMARY.projectileSpeed,
+          damage: PRIMARY.damage,
+        })
+        this.muzzle.spawn(x, y, z)
         this.audio.shoot()
       },
     })
     this.combat.updateSpecial(dtSeconds)
 
     this.updateDirector(dtSeconds, bounds)
-    this.updateEnemies(dtSeconds, bounds)
-    this.updateBoss(dtSeconds, bounds)
-    this.projectiles.update(dtSeconds, bounds)
+    this.updateEnemies(dtSeconds)
+    this.updateBoss(dtSeconds, zone)
+    this.projectiles.update(dtSeconds)
     this.updateMissiles(dtSeconds, bounds)
     this.enemyShots.update(dtSeconds, bounds)
-    this.pickups.update(dtSeconds, bounds)
+    this.pickups.update(dtSeconds)
     this.rings.update(dtSeconds)
     this.muzzle.update(dtSeconds)
 
@@ -635,23 +651,25 @@ export class GameEngine {
     this.damageBossFrom(this.projectiles.items)
     this.damageBossFrom(this.missiles.items)
     this.collisions.resolveEnemyShots(this.enemyShots.items, this.player, (damage) =>
-      this.applyDamageToPlayer(damage, this.player.x, this.player.y),
+      this.applyDamageToPlayer(damage, this.player.x, this.player.y, this.player.z),
     )
     this.collisions.resolvePlayerContact(this.player, this.enemies, (enemy) =>
-      this.applyDamageToPlayer(enemy.contactDamage, enemy.x, enemy.y),
+      this.applyDamageToPlayer(enemy.contactDamage, enemy.x, enemy.y, enemy.z),
     )
     if (
       this.boss.active &&
-      circleHit(
+      sphereHit(
         this.player.x,
         this.player.y,
+        this.player.z,
         this.player.radius,
         this.boss.x,
         this.boss.y,
+        this.boss.z,
         this.boss.radius,
       )
     ) {
-      this.applyDamageToPlayer(BOSS.contactDamage, this.boss.x, this.boss.y)
+      this.applyDamageToPlayer(BOSS.contactDamage, this.boss.x, this.boss.y, this.boss.z)
     }
     this.collisions.resolvePickups(this.pickups.items, this.player, (kind) =>
       this.applyPickup(kind),
@@ -724,7 +742,14 @@ export class GameEngine {
       this.directorTimers[rule.kind] = rule.intervalSeconds
       for (const enemy of this.enemies) {
         if (!enemy.active) {
-          enemy.spawn(computeSpawnX(bounds), randomIn(bounds.minY + 1, bounds.maxY - 1), rule.kind)
+          // Spawn di koridor bidang kapal (bukan frustum jauh yang lebar):
+          // menjamin perjumpaan, bukan sekadar lewat di tepi.
+          enemy.spawn(
+            randomIn(bounds.minX + 1, bounds.maxX - 1),
+            randomIn(bounds.minY + 1, bounds.maxY - 1),
+            CHASE.spawnZ + randomIn(-2, 2),
+            rule.kind,
+          )
           enemy.speedScale = this.waves.speedMultiplier()
           enemy.intervalScale = this.waves.fireIntervalScale()
           break
@@ -733,50 +758,62 @@ export class GameEngine {
     }
   }
 
-  private updateEnemies(dtSeconds: number, bounds: WorldBounds): void {
+  private updateEnemies(dtSeconds: number): void {
     for (const enemy of this.enemies) {
       if (!enemy.active) {
         continue
       }
       enemy.update(dtSeconds, this.elapsedSeconds)
       enemy.spinAngle += enemy.spin * dtSeconds
-      if (enemy.x < bounds.minX - 2) {
+      // Lewat kamera → buang; tembak hanya saat mendekat di depan kapal.
+      if (enemy.z > CHASE.cullZ) {
         enemy.deactivate()
         continue
       }
-      if (enemy.updateFire(dtSeconds) && enemy.x < bounds.maxX) {
+      // Dogfight: musuh cerdas melengkungkan basis gerak ke arah kapal.
+      if (enemy.kind === 'scout' || enemy.kind === 'interceptor' || enemy.kind === 'heavy') {
+        const pull = CHASE.convergePerSecond * dtSeconds
+        enemy.baseX += Math.min(Math.max(this.player.x - enemy.baseX, -pull), pull)
+        enemy.baseY += Math.min(Math.max(this.player.y - enemy.baseY, -pull), pull)
+      }
+      if (enemy.updateFire(dtSeconds) && enemy.z > CHASE.spawnZ + 2 && enemy.z < -1) {
         const dx = this.player.x - enemy.x
         const dy = this.player.y - enemy.y
-        const length = Math.hypot(dx, dy) || 1
+        const dz = this.player.z - enemy.z
+        const length = Math.hypot(dx, dy, dz) || 1
         const speed = enemy.projectileSpeed
         this.enemyShots.fire({
-          x: enemy.x - enemy.radius,
+          x: enemy.x,
           y: enemy.y,
+          z: enemy.z + enemy.radius,
           velocityX: (dx / length) * speed,
           velocityY: (dy / length) * speed,
+          velocityZ: (dz / length) * speed,
           damage: enemy.projectileDamage,
         })
       }
     }
   }
 
-  private spawnBoss(bounds: WorldBounds): void {
+  private spawnBoss(zone: WorldBounds): void {
     const bossNumber = Math.floor(this.waves.wave / 3)
+    const halfWidth = Math.max(1, (zone.maxX - zone.minX) / 2 - 1)
     this.boss.spawn(
-      bounds.maxX + 4,
-      bounds.maxX - BOSS.anchorMargin,
-      0,
+      randomIn(-halfWidth, halfWidth),
+      randomIn(0, 2),
+      CHASE.bossEnterZ,
+      CHASE.bossZ,
       BOSS.hpBase + BOSS.hpPerBoss * bossNumber,
     )
     this.waves.onBossSpawned()
     this.audio.bossWarn()
   }
 
-  private updateBoss(dtSeconds: number, bounds: WorldBounds): void {
+  private updateBoss(dtSeconds: number, zone: WorldBounds): void {
     if (!this.boss.active) {
       return
     }
-    this.boss.update(dtSeconds, this.elapsedSeconds, this.player.y, bounds.minY, bounds.maxY)
+    this.boss.update(dtSeconds, this.elapsedSeconds, this.player.x, this.player.y, zone)
     if (this.boss.updateFireSalvo(dtSeconds)) {
       this.fireBossSalvo()
     }
@@ -785,31 +822,60 @@ export class GameEngine {
     }
   }
 
+  /** Arah tembakan 3D dari boss ke titik bidik di bidang kapal. */
+  private bossShotVelocity(
+    targetX: number,
+    targetY: number,
+    speed: number,
+  ): { x: number; y: number; z: number } {
+    const dx = targetX - this.boss.x
+    const dy = targetY - this.boss.y
+    const dz = this.player.z - this.boss.z
+    const length = Math.hypot(dx, dy, dz) || 1
+    return { x: (dx / length) * speed, y: (dy / length) * speed, z: (dz / length) * speed }
+  }
+
+  private bossMuzzle(): { x: number; y: number; z: number } {
+    return { x: this.boss.x, y: this.boss.y, z: this.boss.z + this.boss.radius }
+  }
+
   /** Pola 1: aimed salvo 3 tembakan ke posisi pemain. */
   private fireBossSalvo(): void {
-    const base = Math.atan2(this.player.y - this.boss.y, this.player.x - this.boss.x)
+    const muzzle = this.bossMuzzle()
     for (let i = 0; i < BOSS.salvoCount; i += 1) {
-      const angle = base + (i - (BOSS.salvoCount - 1) / 2) * BOSS.salvoSpread
+      const velocity = this.bossShotVelocity(
+        this.player.x + (i - (BOSS.salvoCount - 1) / 2) * 0.7,
+        this.player.y + (i - (BOSS.salvoCount - 1) / 2) * 0.4,
+        BOSS.salvoSpeed,
+      )
       this.enemyShots.fire({
-        x: this.boss.x - this.boss.radius,
-        y: this.boss.y,
-        velocityX: Math.cos(angle) * BOSS.salvoSpeed,
-        velocityY: Math.sin(angle) * BOSS.salvoSpeed,
+        x: muzzle.x,
+        y: muzzle.y,
+        z: muzzle.z,
+        velocityX: velocity.x,
+        velocityY: velocity.y,
+        velocityZ: velocity.z,
         damage: BOSS.salvoDamage,
       })
     }
   }
 
-  /** Pola 2: kipas 5 tembakan menyebar. */
+  /** Pola 2: kipas 5 tembakan menyebar horizontal. */
   private fireBossFan(): void {
-    const center = Math.atan2(this.player.y - this.boss.y, this.player.x - this.boss.x)
+    const muzzle = this.bossMuzzle()
     for (let i = 0; i < BOSS.fanCount; i += 1) {
-      const angle = center + (i - (BOSS.fanCount - 1) / 2) * (BOSS.fanSpread / (BOSS.fanCount - 1))
+      const velocity = this.bossShotVelocity(
+        this.player.x + (i - (BOSS.fanCount - 1) / 2) * 1.2,
+        this.player.y + (i - (BOSS.fanCount - 1) / 2) * 0.3,
+        BOSS.fanSpeed,
+      )
       this.enemyShots.fire({
-        x: this.boss.x - this.boss.radius,
-        y: this.boss.y,
-        velocityX: Math.cos(angle) * BOSS.fanSpeed,
-        velocityY: Math.sin(angle) * BOSS.fanSpeed,
+        x: muzzle.x,
+        y: muzzle.y,
+        z: muzzle.z,
+        velocityX: velocity.x,
+        velocityY: velocity.y,
+        velocityZ: velocity.z,
         damage: BOSS.fanDamage,
       })
     }
@@ -824,7 +890,16 @@ export class GameEngine {
         continue
       }
       if (
-        circleHit(dealer.x, dealer.y, dealer.radius, this.boss.x, this.boss.y, this.boss.radius)
+        sphereHit(
+          dealer.x,
+          dealer.y,
+          dealer.z,
+          dealer.radius,
+          this.boss.x,
+          this.boss.y,
+          this.boss.z,
+          this.boss.radius,
+        )
       ) {
         dealer.deactivate()
         if (this.boss.damage(dealer.damage)) {
@@ -845,13 +920,14 @@ export class GameEngine {
         this.boss.y + randomIn(-1, 1),
         RING_KILL,
         FX.bossRingScale,
+        this.boss.z,
       )
     }
     for (let i = 0; i < BOSS.dropPickups; i += 1) {
-      this.pickups.spawn(this.boss.x, this.boss.y, rollPickupKind())
+      this.pickups.spawn(this.boss.x, this.boss.y, this.boss.z, rollPickupKind())
     }
     if (Math.random() < BOSS.dropSecondChance) {
-      this.pickups.spawn(this.boss.x + 1, this.boss.y, rollPickupKind())
+      this.pickups.spawn(this.boss.x + 1, this.boss.y, this.boss.z, rollPickupKind())
     }
     if (this.waves.registerBossDefeated()) {
       this.advanceWave()
@@ -861,10 +937,10 @@ export class GameEngine {
   private handleEnemyDestroyed(enemy: Enemy): void {
     this.score.addKill(enemy.kind)
     this.audio.enemyDestroyed()
-    this.rings.spawn(enemy.x, enemy.y, RING_KILL, FX.killRingScale)
+    this.rings.spawn(enemy.x, enemy.y, RING_KILL, FX.killRingScale, enemy.z)
     const chance = PICKUP.dropChance[enemy.kind] ?? 0
     if (Math.random() < chance) {
-      this.pickups.spawn(enemy.x, enemy.y, rollPickupKind())
+      this.pickups.spawn(enemy.x, enemy.y, enemy.z, rollPickupKind())
     }
     if (this.waves.registerKill()) {
       this.advanceWave()
@@ -879,7 +955,7 @@ export class GameEngine {
     this.enemyShots.clear()
     this.waves.advance()
     if (this.waves.isBossWave()) {
-      this.spawnBoss(this.cameraController.getBounds())
+      this.spawnBoss(computePlayerZone(this.cameraController.getBounds()))
     }
     this.syncEntityMeshes()
   }
@@ -913,13 +989,13 @@ export class GameEngine {
     return best
   }
 
-  private applyDamageToPlayer(amount: number, x: number, y: number): void {
+  private applyDamageToPlayer(amount: number, x: number, y: number, z: number): void {
     const result = this.player.health.applyDamage(amount)
     if (result.ignored) {
       return
     }
     const shielded = result.shieldDamage > 0
-    this.rings.spawn(x, y, shielded ? RING_SHIELD : RING_HULL)
+    this.rings.spawn(x, y, shielded ? RING_SHIELD : RING_HULL, 1, z)
     this.audio.playerHit(shielded)
     this.shake()
     if (result.died && !this.dying) {
@@ -938,7 +1014,7 @@ export class GameEngine {
       this.combat.reduceSpecial()
     }
     this.audio.pickup()
-    this.rings.spawn(this.player.x, this.player.y, RING_SHIELD)
+    this.rings.spawn(this.player.x, this.player.y, RING_SHIELD, 1, this.player.z)
   }
 
   private syncShipMesh(): void {
@@ -960,11 +1036,10 @@ export class GameEngine {
         this.player.y + Math.sin(this.elapsedSeconds * 2) * 0.12,
         0,
       )
-      this.ship.rotation.z =
-        Math.sin(this.elapsedSeconds * 1.3) * 0.02 + THREE.MathUtils.clamp(deltaY * 0.6, -0.3, 0.3)
-      // Banking fully-3D: yaw mengikuti gerak horizontal, pitch mengikuti vertikal.
+      // Chase-cam: yaw masuk belokan + roll + pitch ikuti gerak.
       this.ship.rotation.y = THREE.MathUtils.clamp(deltaX * 1.2, -0.4, 0.4)
-      this.ship.rotation.x = THREE.MathUtils.clamp(-deltaY * 0.8, -0.3, 0.3)
+      this.ship.rotation.z = THREE.MathUtils.clamp(-deltaX * 1.5, -0.5, 0.5)
+      this.ship.rotation.x = THREE.MathUtils.clamp(deltaY * 0.8, -0.3, 0.3)
     } else {
       this.ship.position.set(this.player.x, this.player.y, 0)
       this.ship.rotation.set(0, 0, 0)
@@ -1019,6 +1094,7 @@ export class GameEngine {
           normalizeModel(scene, {
             targetLength: config.targetLength,
             yawRadians: config.yawRadians,
+            pitchRadians: config.pitchRadians,
             rollRadians: config.rollRadians,
             name: `kind-${kind}`,
             forwardX: -1,
@@ -1063,6 +1139,7 @@ export class GameEngine {
     const model = normalizeModel(scene, {
       targetLength: ENTITY_MODEL.boss.targetLength,
       yawRadians: ENTITY_MODEL.boss.yawRadians,
+      pitchRadians: ENTITY_MODEL.boss.pitchRadians,
       rollRadians: ENTITY_MODEL.boss.rollRadians,
       name: 'boss-model',
       forwardX: -1,
@@ -1082,7 +1159,7 @@ export class GameEngine {
       }
       mesh.visible = projectile.active
       if (projectile.active) {
-        mesh.position.set(projectile.x, projectile.y, 0)
+        mesh.position.set(projectile.x, projectile.y, projectile.z)
       }
     })
     this.missiles.items.forEach((missile, index) => {
@@ -1092,7 +1169,7 @@ export class GameEngine {
       }
       mesh.visible = missile.active
       if (missile.active) {
-        mesh.position.set(missile.x, missile.y, 0)
+        mesh.position.set(missile.x, missile.y, missile.z)
       }
     })
     this.enemyShots.items.forEach((shot, index) => {
@@ -1102,7 +1179,7 @@ export class GameEngine {
       }
       mesh.visible = shot.active
       if (shot.active) {
-        mesh.position.set(shot.x, shot.y, 0)
+        mesh.position.set(shot.x, shot.y, shot.z)
       }
     })
     this.enemies.forEach((enemy, index) => {
@@ -1114,11 +1191,11 @@ export class GameEngine {
       if (!enemy.active) {
         return
       }
-      slot.position.set(enemy.x, enemy.y, 0)
+      slot.position.set(enemy.x, enemy.y, enemy.z)
       for (const child of slot.children) {
         child.visible = child.name === `kind-${enemy.kind}`
         if (child.name === 'kind-asteroid' && child.visible) {
-          child.rotation.z = enemy.spinAngle
+          child.rotation.x = enemy.spinAngle
         }
         if (child.name === 'kind-mine' && child.visible && !this.reduceMotion) {
           const pulse = 1 + Math.sin(this.elapsedSeconds * 4 + enemy.phase) * 0.15
@@ -1128,7 +1205,7 @@ export class GameEngine {
     })
     this.bossMesh.visible = this.boss.active
     if (this.boss.active) {
-      this.bossMesh.position.set(this.boss.x, this.boss.y, 0)
+      this.bossMesh.position.set(this.boss.x, this.boss.y, this.boss.z)
       if (this.boss.isTelegraphing && !this.reduceMotion) {
         const pulse = 1 + Math.sin(this.elapsedSeconds * 10) * 0.05
         this.bossMesh.scale.set(pulse, pulse, pulse)
@@ -1145,7 +1222,7 @@ export class GameEngine {
       if (!pickup.active) {
         return
       }
-      slot.position.set(pickup.x, pickup.y, 0)
+      slot.position.set(pickup.x, pickup.y, pickup.z)
       if (!this.reduceMotion) {
         slot.rotation.y = this.elapsedSeconds * 1.8
       }

@@ -4,8 +4,10 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 export interface ModelNormalizeOptions {
   /** Panjang sisi-bounding-box terpanjang setelah skala (world unit). */
   targetLength: number
-  /** Yaw asumsi model menghadap +Z; +90° → +X, −90° → −X. */
+  /** Yaw asumsi model menghadap +Z; +90° → +X, 180° → −Z. */
   yawRadians: number
+  /** Pitch pra-yaw untuk model berhidung +Y (had vectors +Y → +Z). */
+  pitchRadians?: number
   /** Roll pra-yaw untuk model berhidung +Y (rebah ke bidang XY). */
   rollRadians?: number
   /** Gabung mesh statis per material (default true; hemat draw call). */
@@ -47,6 +49,7 @@ export function normalizeModel(
   const orient = new THREE.Group()
   const flat = new THREE.Group()
   flat.rotation.z = options.rollRadians ?? 0
+  flat.rotation.x = options.pitchRadians ?? 0
   flat.add(content)
   orient.add(flat)
   orient.rotation.y = options.yawRadians

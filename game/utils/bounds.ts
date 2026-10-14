@@ -19,18 +19,12 @@ export function computeBounds(halfHeight: number, aspect: number): WorldBounds {
   }
 }
 
-/** Zona gerak pemain: pita kiri arena dengan margin dalam (PRD §6.2). */
+/** Zona gerak pemain chase-cam: seluruh layar dikurangi margin (PRD §6.2). */
 export function computePlayerZone(bounds: WorldBounds): WorldBounds {
-  const minX = bounds.minX + WORLD.playerMargin
   return {
-    minX,
-    maxX: Math.max(minX, bounds.minX + WORLD.playerZoneWidth),
+    minX: bounds.minX + WORLD.playerMargin,
+    maxX: bounds.maxX - WORLD.playerMargin,
     minY: bounds.minY + WORLD.playerMargin,
     maxY: bounds.maxY - WORLD.playerMargin,
   }
-}
-
-/** Posisi X spawn di luar batas kanan viewport (PRD §6.2). */
-export function computeSpawnX(bounds: WorldBounds): number {
-  return bounds.maxX + WORLD.spawnMarginX
 }

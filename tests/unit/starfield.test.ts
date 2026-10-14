@@ -1,7 +1,7 @@
 import type * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 
-import { STARFIELD, WORLD } from '../../game/config/gameBalance'
+import { CHASE, STARFIELD } from '../../game/config/gameBalance'
 import { Starfield } from '../../game/effects/Starfield'
 import type { WorldBounds } from '../../game/types/game'
 
@@ -19,7 +19,7 @@ function positionAttribute(points: THREE.Object3D): THREE.BufferAttribute {
   return (points as THREE.Points).geometry.getAttribute('position') as THREE.BufferAttribute
 }
 
-describe('Starfield', () => {
+describe('Starfield streaming', () => {
   it('membuat minimal 2 lapis parallax sesuai konfigurasi', () => {
     const starfield = new Starfield(BOUNDS, seededRandom(1))
     expect(starfield.layerCount).toBeGreaterThanOrEqual(2)
@@ -27,10 +27,10 @@ describe('Starfield', () => {
     starfield.dispose()
   })
 
-  it('posisi awal dan hasil update tetap dalam batas + margin', () => {
+  it('bintang mengalir ke kamera (+Z) dan wrap dalam rentang', () => {
     const starfield = new Starfield(BOUNDS, seededRandom(42))
-    const leftEdge = BOUNDS.minX - WORLD.spawnMarginX - 0.01
-    const rightEdge = BOUNDS.maxX + WORLD.spawnMarginX + 0.01
+    const near = CHASE.cullZ - 1 + 0.01
+    const far = CHASE.spawnZ - 10 - 0.01
     starfield.update(5, BOUNDS)
     for (const points of starfield.group.children) {
       if (!(points as THREE.Points).isPoints) {
@@ -38,23 +38,24 @@ describe('Starfield', () => {
       }
       const attribute = positionAttribute(points)
       for (let i = 0; i < attribute.count; i += 1) {
-        const x = attribute.getX(i)
-        expect(x).toBeGreaterThanOrEqual(leftEdge)
-        expect(x).toBeLessThanOrEqual(rightEdge)
+        const z = attribute.getZ(i)
+        expect(z).toBeGreaterThanOrEqual(far)
+        expect(z).toBeLessThanOrEqual(near)
       }
     }
     starfield.dispose()
   })
 
-  it('nebula opsional di node, parallax fokus-Y aman di semua env', () => {
+  it('nebula opsional di node, parallax fokus-XY aman di semua env', () => {
     const starfield = new Starfield(BOUNDS, seededRandom(3))
     // Node tanpa document: backdrop kosong; browser: 3 sprite. Keduanya valid.
     expect(starfield.backdrop.children.length).toBeLessThanOrEqual(3)
-    expect(() => starfield.update(1, BOUNDS, 2.5)).not.toThrow()
+    expect(() => starfield.update(1, BOUNDS, 2.5, -1)).not.toThrow()
     expect(() => starfield.update(1, BOUNDS)).not.toThrow()
     starfield.dispose()
     expect(starfield.backdrop.children).toHaveLength(0)
   })
+
   it('dispose idempotent dan update setelah dispose menjadi no-op', () => {
     const starfield = new Starfield(BOUNDS, seededRandom(7))
     const geometries = starfield.group.children.map((points) => positionAttribute(points))

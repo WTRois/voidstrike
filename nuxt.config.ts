@@ -18,8 +18,7 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         {
           name: 'description',
-          content:
-            'VOIDSTRIKE: STARFALL — 3D side-scrolling arcade shooter. Single-player, no login.',
+          content: 'VOIDSTRIKE: STARFALL — 3D chase-cam rail shooter. Single-player, no login.',
         },
       ],
     },

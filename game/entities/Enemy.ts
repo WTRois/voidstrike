@@ -51,9 +51,12 @@ const STATS: Record<EnemyKind, KindStats> = {
 export class Enemy {
   x = 0
   y = 0
+  /** Kedalaman: spawn jauh (−Z), mendekat ke kamera (+Z). */
+  z = 0
   hp = 0
   active = false
   kind: EnemyKind = 'scout'
+  baseX = 0
   baseY = 0
   phase = 0
   spin = 0
@@ -87,11 +90,13 @@ export class Enemy {
     return STATS[this.kind].projectileDamage
   }
 
-  spawn(x: number, y: number, kind: EnemyKind): void {
+  spawn(x: number, y: number, z: number, kind: EnemyKind): void {
     this.x = x
     this.y = y
+    this.z = z
     this.kind = kind
     this.hp = STATS[kind].hp
+    this.baseX = x
     this.baseY = y
     this.phase = Math.random() * Math.PI * 2
     this.spin = (Math.random() - 0.5) * 2
@@ -110,13 +115,18 @@ export class Enemy {
     if (!this.active || dtSeconds <= 0) {
       return
     }
-    this.x -= this.speed * this.speedScale * dtSeconds
+    // Mendekat ke kamera (+Z); posisi layar selalu diturunkan dari basis
+    // (engine boleh menggeser basis untuk dogfight converge).
+    this.z += this.speed * this.speedScale * dtSeconds
     const stats = STATS[this.kind]
-    if (stats.weaveAmplitude > 0) {
-      this.y =
-        this.baseY +
-        Math.sin(elapsedSeconds * stats.weaveFrequency + this.phase) * stats.weaveAmplitude
-    }
+    this.y =
+      this.baseY +
+      Math.sin(elapsedSeconds * stats.weaveFrequency + this.phase) * stats.weaveAmplitude
+    this.x =
+      this.baseX +
+      Math.sin(elapsedSeconds * stats.weaveFrequency * 0.7 + this.phase) *
+        stats.weaveAmplitude *
+        0.5
   }
 
   /** Hitung mundur tembakan; true saat siap menembak (engine me-reset timer). */

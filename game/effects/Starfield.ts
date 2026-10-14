@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-import { NEBULA, STARFIELD, WORLD } from '../config/gameBalance'
+import { CHASE, NEBULA, RENDER, STARFIELD, WORLD } from '../config/gameBalance'
 import type { WorldBounds } from '../types/game'
 
 interface StarLayer {
@@ -13,8 +13,23 @@ interface StarLayer {
 interface Backdrop {
   sprite: THREE.Sprite
   drift: number
-  parallaxY: number
+  parallax: number
+  baseX: number
   baseY: number
+}
+
+const STREAM_FAR_Z = CHASE.spawnZ - 10
+const STREAM_NEAR_Z = CHASE.cullZ - 1
+
+function frustumHalf(
+  bounds: WorldBounds,
+  depthZ: number,
+): { halfWidth: number; halfHeight: number } {
+  const height = bounds.maxY - bounds.minY
+  const width = bounds.maxX - bounds.minX
+  const aspect = height > 0 ? width / height : 16 / 9
+  const halfHeight = WORLD.halfHeight * ((RENDER.cameraZ - depthZ) / RENDER.cameraZ)
+  return { halfWidth: halfHeight * aspect, halfHeight }
 }
 
 function makeNebulaTexture(innerColor: string): THREE.CanvasTexture | null {
@@ -50,10 +65,11 @@ function makeNebulaTexture(innerColor: string): THREE.CanvasTexture | null {
 }
 
 /**
- * Background parallax Tahap 7: N lapis bintang (kanan → kiri, kecepatan
- * berbeda, wrap di luar batas + margin) + nebula sprite prosedural yang
- * melayang lambat dan bergeser halus mengikuti fokus Y pemain.
- * `group` hanya berisi Points (kontrak test lama); nebula di `backdrop`.
+ * Background streaming chase-cam (Tahap 8): bintang mengalir dari jauh
+ * (−Z) ke arah kamera (+Z, nuansa terbang maju ala Vendetta) dengan
+ * kecepatan per lapis berbeda, wrap di ujung dekat. Nebula jauh melayang
+ * lambat + parallax XY mengikuti posisi kapal.
+ * `group` hanya berisi Points; nebula di `backdrop`.
  */
 export class Starfield {
   readonly group = new THREE.Group()
@@ -81,7 +97,6 @@ export class Starfield {
         depthWrite: false,
       })
       const points = new THREE.Points(geometry, material)
-      points.position.z = config.depth
       points.frustumCulled = false
       this.layers.push({ points, material, positions, speed: config.speed })
       this.group.add(points)
@@ -104,7 +119,8 @@ export class Starfield {
       this.backdrops.push({
         sprite,
         drift: config.drift,
-        parallaxY: config.parallaxY,
+        parallax: config.parallaxY,
+        baseX: config.x,
         baseY: config.y,
       })
       this.backdrop.add(sprite)
@@ -120,43 +136,42 @@ export class Starfield {
   }
 
   private scatter(positions: Float32Array, bounds: WorldBounds): void {
-    const width = bounds.maxX - bounds.minX + WORLD.spawnMarginX * 2
-    const height = bounds.maxY - bounds.minY
+    const { halfWidth, halfHeight } = frustumHalf(bounds, STREAM_FAR_Z)
     for (let i = 0; i < positions.length; i += 3) {
-      positions[i] = bounds.minX - WORLD.spawnMarginX + this.random() * width
-      positions[i + 1] = bounds.minY + this.random() * height
-      positions[i + 2] = 0
+      positions[i] = (this.random() * 2 - 1) * halfWidth
+      positions[i + 1] = (this.random() * 2 - 1) * halfHeight
+      positions[i + 2] = STREAM_FAR_Z + this.random() * (STREAM_NEAR_Z - STREAM_FAR_Z)
     }
   }
 
-  update(dtSeconds: number, bounds: WorldBounds, focusY = 0): void {
+  update(dtSeconds: number, bounds: WorldBounds, focusX = 0, focusY = 0): void {
     if (this.disposed || dtSeconds <= 0) {
       return
     }
-    const leftEdge = bounds.minX - WORLD.spawnMarginX
-    const rightEdge = bounds.maxX + WORLD.spawnMarginX
-    const height = bounds.maxY - bounds.minY
+    const { halfWidth, halfHeight } = frustumHalf(bounds, STREAM_FAR_Z)
     for (const layer of this.layers) {
       const positions = layer.positions
       for (let i = 0; i < positions.length; i += 3) {
-        const x = (positions[i] ?? 0) - layer.speed * dtSeconds
-        if (x < leftEdge) {
-          positions[i] = rightEdge
-          positions[i + 1] = bounds.minY + this.random() * height
+        const z = (positions[i + 2] ?? 0) + layer.speed * dtSeconds
+        if (z > STREAM_NEAR_Z) {
+          positions[i] = (this.random() * 2 - 1) * halfWidth
+          positions[i + 1] = (this.random() * 2 - 1) * halfHeight
+          positions[i + 2] = STREAM_FAR_Z
         } else {
-          positions[i] = x
+          positions[i + 2] = z
         }
       }
       const attribute = layer.points.geometry.getAttribute('position') as THREE.BufferAttribute
       attribute.needsUpdate = true
     }
     for (const entry of this.backdrops) {
-      let x = entry.sprite.position.x - entry.drift * dtSeconds
-      if (x < leftEdge - 6) {
-        x = rightEdge + 6
+      let z = entry.sprite.position.z + entry.drift * dtSeconds
+      if (z > STREAM_NEAR_Z) {
+        z = STREAM_FAR_Z
       }
-      entry.sprite.position.x = x
-      entry.sprite.position.y = entry.baseY - focusY * entry.parallaxY
+      entry.sprite.position.z = z
+      entry.sprite.position.x = entry.baseX - focusX * entry.parallax
+      entry.sprite.position.y = entry.baseY - focusY * entry.parallax
     }
   }
 

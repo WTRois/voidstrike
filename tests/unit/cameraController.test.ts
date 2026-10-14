@@ -1,10 +1,10 @@
 import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 
+import { CHASE, RENDER, WORLD } from '../../game/config/gameBalance'
 import { CameraController } from '../../game/core/CameraController'
-import { WORLD } from '../../game/config/gameBalance'
 
-describe('CameraController', () => {
+describe('CameraController chase-cam', () => {
   it('perspective side-view dengan batas identik fairness lama', () => {
     const controller = new CameraController()
     expect(controller.camera).toBeInstanceOf(THREE.PerspectiveCamera)
@@ -31,14 +31,34 @@ describe('CameraController', () => {
     expect(controller.getBounds()).toEqual(before)
   })
 
+  it('snap menempatkan kamera di belakang kapal menatap depan', () => {
+    const controller = new CameraController()
+    controller.snap(2, -1)
+    expect(controller.camera.position.x).toBeCloseTo(2 * CHASE.followX, 10)
+    expect(controller.camera.position.y).toBeCloseTo(CHASE.camHeight - CHASE.followY, 10)
+    expect(controller.camera.position.z).toBe(RENDER.cameraZ)
+  })
+
+  it('follow mendekati target secara smoothing', () => {
+    const controller = new CameraController()
+    controller.snap(0, -2)
+    const beforeX = controller.camera.position.x
+    controller.follow(0.016, 8, -2)
+    const afterX = controller.camera.position.x
+    expect(afterX).toBeGreaterThan(beforeX)
+    expect(afterX).toBeLessThan(8 * CHASE.followX)
+    controller.follow(10, 8, -2)
+    expect(controller.camera.position.x).toBeCloseTo(8 * CHASE.followX, 2)
+  })
+
   it('setShake menggeser dan mengembalikan posisi kamera', () => {
     const controller = new CameraController()
+    controller.snap(0, -2)
     controller.setShake(0.2, -0.1)
     expect(controller.camera.position.x).toBeCloseTo(0.2, 10)
-    expect(controller.camera.position.y).toBeCloseTo(-0.1, 10)
-    expect(controller.camera.position.z).toBe(10)
+    expect(controller.camera.position.y).toBeCloseTo(CHASE.camHeight - 2 * CHASE.followY - 0.1, 10)
+    expect(controller.camera.position.z).toBe(RENDER.cameraZ)
     controller.setShake(0, 0)
     expect(controller.camera.position.x).toBe(0)
-    expect(controller.camera.position.y).toBe(0)
   })
 })

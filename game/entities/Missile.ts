@@ -1,4 +1,4 @@
-import { POOLS, SPECIAL } from '../config/gameBalance'
+import { CHASE, POOLS, SPECIAL } from '../config/gameBalance'
 import type { WorldBounds } from '../types/game'
 
 function wrapAngle(radians: number): number {
@@ -12,24 +12,36 @@ function wrapAngle(radians: number): number {
 }
 
 /**
- * Misil special weapon: homing dengan steering dibatasi (PRD §8.4).
- * Target diakuisisi ulang tiap tick oleh engine; tanpa target → lurus.
+ * Misil special weapon: homing XY dengan steering dibatasi (PRD §8.4),
+ * terbang maju −Z. Target diakuisisi ulang tiap tick oleh engine;
+ * tanpa target → lurus.
  */
 export class Missile {
   x = 0
   y = 0
+  z = 0
   velocityX = 0
   velocityY = 0
+  velocityZ = 0
   damage: number = SPECIAL.missileDamage
   life = 0
   active = false
   readonly radius = SPECIAL.missileRadius
 
-  launch(x: number, y: number, velocityX: number, velocityY: number): void {
+  launch(
+    x: number,
+    y: number,
+    z: number,
+    velocityX: number,
+    velocityY: number,
+    velocityZ: number,
+  ): void {
     this.x = x
     this.y = y
+    this.z = z
     this.velocityX = velocityX
     this.velocityY = velocityY
+    this.velocityZ = velocityZ
     this.damage = SPECIAL.missileDamage
     this.life = SPECIAL.missileLifeSeconds
     this.active = true
@@ -54,9 +66,11 @@ export class Missile {
     }
     this.x += this.velocityX * dtSeconds
     this.y += this.velocityY * dtSeconds
+    this.z += this.velocityZ * dtSeconds
     this.life -= dtSeconds
     if (
       this.life <= 0 ||
+      this.z < CHASE.killZ ||
       this.x < bounds.minX - 2 ||
       this.x > bounds.maxX + 2 ||
       this.y < bounds.minY - 2 ||
@@ -76,10 +90,17 @@ export class MissilePool {
     }
   }
 
-  launch(x: number, y: number, velocityX: number, velocityY: number): Missile | null {
+  launch(
+    x: number,
+    y: number,
+    z: number,
+    velocityX: number,
+    velocityY: number,
+    velocityZ: number,
+  ): Missile | null {
     for (const item of this.items) {
       if (!item.active) {
-        item.launch(x, y, velocityX, velocityY)
+        item.launch(x, y, z, velocityX, velocityY, velocityZ)
         return item
       }
     }

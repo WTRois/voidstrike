@@ -1,20 +1,21 @@
-import { PICKUP, POOLS } from '../config/gameBalance'
-import type { WorldBounds } from '../types/game'
+import { CHASE, PICKUP, POOLS } from '../config/gameBalance'
 
 export type PickupKind = 'hull' | 'shield' | 'weapon'
 
-/** Pickup melayang kiri dengan lifetime; diambil sekali (PRD §8.8). */
+/** Pickup melayang ke kamera dengan lifetime; diambil sekali (PRD §8.8). */
 export class Pickup {
   x = 0
   y = 0
+  z = 0
   kind: PickupKind = 'hull'
   life = 0
   active = false
   readonly radius = PICKUP.radius
 
-  spawn(x: number, y: number, kind: PickupKind): void {
+  spawn(x: number, y: number, z: number, kind: PickupKind): void {
     this.x = x
     this.y = y
+    this.z = z
     this.kind = kind
     this.life = PICKUP.lifeSeconds
     this.active = true
@@ -24,13 +25,13 @@ export class Pickup {
     this.active = false
   }
 
-  update(dtSeconds: number, bounds: WorldBounds): void {
+  update(dtSeconds: number): void {
     if (!this.active || dtSeconds <= 0) {
       return
     }
-    this.x -= PICKUP.driftSpeed * dtSeconds
+    this.z += PICKUP.driftSpeed * dtSeconds
     this.life -= dtSeconds
-    if (this.life <= 0 || this.x < bounds.minX - 2) {
+    if (this.life <= 0 || this.z > CHASE.cullZ) {
       this.active = false
     }
   }
@@ -45,19 +46,19 @@ export class PickupPool {
     }
   }
 
-  spawn(x: number, y: number, kind: PickupKind): Pickup | null {
+  spawn(x: number, y: number, z: number, kind: PickupKind): Pickup | null {
     for (const item of this.items) {
       if (!item.active) {
-        item.spawn(x, y, kind)
+        item.spawn(x, y, z, kind)
         return item
       }
     }
     return null
   }
 
-  update(dtSeconds: number, bounds: WorldBounds): void {
+  update(dtSeconds: number): void {
     for (const item of this.items) {
-      item.update(dtSeconds, bounds)
+      item.update(dtSeconds)
     }
   }
 

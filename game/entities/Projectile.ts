@@ -1,18 +1,19 @@
-import { POOLS, PRIMARY } from '../config/gameBalance'
-import type { WorldBounds } from '../types/game'
+import { CHASE, POOLS, PRIMARY } from '../config/gameBalance'
 
 export interface ProjectileSpec {
   x: number
   y: number
-  velocityX: number
+  z: number
+  velocityZ: number
   damage: number
 }
 
-/** Proyektil pooled: tanpa alokasi saat update (PRD §15.1). */
+/** Proyektil pooled: tanpa alokasi saat update (PRD §15.1). Terbang −Z. */
 export class Projectile {
   x = 0
   y = 0
-  velocityX = 0
+  z = 0
+  velocityZ = 0
   damage: number = PRIMARY.damage
   life = 0
   active = false
@@ -21,7 +22,8 @@ export class Projectile {
   spawn(spec: ProjectileSpec): void {
     this.x = spec.x
     this.y = spec.y
-    this.velocityX = spec.velocityX
+    this.z = spec.z
+    this.velocityZ = spec.velocityZ
     this.damage = spec.damage
     this.life = PRIMARY.lifetimeSeconds
     this.active = true
@@ -31,13 +33,13 @@ export class Projectile {
     this.active = false
   }
 
-  update(dtSeconds: number, bounds: WorldBounds): void {
+  update(dtSeconds: number): void {
     if (!this.active || dtSeconds <= 0) {
       return
     }
-    this.x += this.velocityX * dtSeconds
+    this.z += this.velocityZ * dtSeconds
     this.life -= dtSeconds
-    if (this.life <= 0 || this.x > bounds.maxX + 2 || this.x < bounds.minX - 2) {
+    if (this.life <= 0 || this.z < CHASE.killZ) {
       this.active = false
     }
   }
@@ -63,9 +65,9 @@ export class ProjectilePool {
     return null
   }
 
-  update(dtSeconds: number, bounds: WorldBounds): void {
+  update(dtSeconds: number): void {
     for (const item of this.items) {
-      item.update(dtSeconds, bounds)
+      item.update(dtSeconds)
     }
   }
 
