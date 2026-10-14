@@ -32,3 +32,6 @@ coverage/
 
 # Playwright MCP traces
 .playwright-mcp/
+
+# Ad-hoc smoke screenshots
+/vs*.png
