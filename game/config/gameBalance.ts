@@ -72,19 +72,24 @@ export const NEBULA = {
 export const SHIP_MODEL = {
   /** Panjang siluet setelah normalisasi (world unit, ≈ placeholder). */
   targetLength: 3.2,
-  /** Yaw 180°: hidung +Z → −Z (masuk layar, mesin terlihat). */
-  yawRadians: Math.PI,
+  /**
+   * Hidung asli −X (hasil bedah taper Tahap 8): pitch −90° merebahkan
+   * pipih-XY ke bidang XZ, yaw −90° mengarahkan hidung ke −Z (masuk layar).
+   */
+  pitchRadians: -Math.PI / 2,
+  yawRadians: -Math.PI / 2,
 } as const
 
 /**
  * Model GLB musuh/hazard/boss. Panjang ≈ 2× radius hitbox agar siluet
- * sedikit melebihi hitbox yang adil (PRD §11.5). Model berhidung +Y →
- * pitch +90° agar menghadap +Z (ke arah kamera/pemain).
+ * sedikit melebihi hitbox yang adil (PRD §11.5). Hidung hasil bedah taper
+ * (scout/interceptor +Y, heavy −Y, boss diasumsikan +Y): pitch ±90°
+ * menghadapkan hidung ke +Z (ke arah kamera/pemain).
  */
 export const ENTITY_MODEL = {
   scout: { targetLength: 1.4, yawRadians: 0, pitchRadians: Math.PI / 2, rollRadians: 0 },
   interceptor: { targetLength: 1.5, yawRadians: 0, pitchRadians: Math.PI / 2, rollRadians: 0 },
-  heavy: { targetLength: 2.0, yawRadians: 0, pitchRadians: Math.PI / 2, rollRadians: 0 },
+  heavy: { targetLength: 2.0, yawRadians: 0, pitchRadians: -Math.PI / 2, rollRadians: 0 },
   asteroid: { targetLength: 1.7, yawRadians: 0, pitchRadians: 0, rollRadians: 0 },
   boss: { targetLength: 3.0, yawRadians: 0, pitchRadians: Math.PI / 2, rollRadians: 0 },
 } as const

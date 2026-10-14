@@ -24,6 +24,7 @@ export function normalizePlayerShip(source: THREE.Object3D): THREE.Group {
   return normalizeModel(source, {
     targetLength: SHIP_MODEL.targetLength,
     yawRadians: SHIP_MODEL.yawRadians,
+    pitchRadians: SHIP_MODEL.pitchRadians,
     name: 'player-ship-model',
     forwardX: 1,
   })

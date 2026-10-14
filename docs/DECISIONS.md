@@ -3,6 +3,21 @@
 Catatan keputusan teknis kecil yang belum ditentukan PRD (PRD §0 poin 10).
 Pilih opsi paling sederhana, maintainable, ringan.
 
+## Tahap 8 (perbaikan) — Orientasi model dari bedah geometri (2026-10-14)
+
+- **Keluhan pengguna terbukti benar**: kapal terlihat dari atas karena `spaceship.glb`
+  ternyata pipih di bidang XY (tebal Z cuma 1,1) dengan hidung di **−X** — yaw
+  180° tidak mengubah apa pun (tetap pipih menghadap kamera).
+- **Metode bedah taper headless** (bun + three, tanpa render): untuk tiap sumbu,
+  bandingkan sebaran cross-section 5% verteks di ujung min vs max; ujung runcing
+  = hidung. Hasil: pemain −X; scout/interceptor +Y; heavy −Y (lemah); asteroid
+  simetris (irrelevan); boss ambigu (tetap +Y, terverifikasi benar via screenshot).
+- **Perbaikan**: pemain pitch −90° + yaw −90° (hidung −Z, sayap horizontal,
+  tipis vertikal); heavy pitch −90° (sebelumnya mundur). Verifikasi: rear-view
+  Vendetta murni (dua mesin menyala), heavy/boss menghadap kamera.
+- **Frame kapal "hilang" sesekali = blink i-frame 12Hz** (PRD §8.1), bukan bug
+  render — terkonfirmasi dua frame berurutan (ring hit terlihat, kapal kedip).
+
 ## Tahap 8 — Konversi chase-cam ala Vendetta (2026-10-14)
 
 - **Pengguna meminta game "beneran 3D" seperti Vendetta Online** (chase-cam belakang kapal, terbang masuk layar). PRD §1.2/§6/§8/§11/§23 diamendemen: side-view → chase-cam. Ini override eksplisit pengguna, bukan scope-creep.
