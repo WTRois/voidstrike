@@ -2,6 +2,11 @@ import { useRoute, useState } from '#app'
 import { onMounted, onUnmounted, type Ref } from 'vue'
 
 import spaceshipModelUrl from '~/assets/3d/spaceship.glb?url'
+import scoutModelUrl from '~/assets/3d/enemy-scout.glb?url'
+import interceptorModelUrl from '~/assets/3d/enemy-interceptor.glb?url'
+import heavyModelUrl from '~/assets/3d/enemy-heavy.glb?url'
+import asteroidModelUrl from '~/assets/3d/asteroid-01.glb?url'
+import bossModelUrl from '~/assets/3d/boss-01.glb?url'
 import explosionSfxUrl from '~/assets/audio/sfx/explotion-scifi.mp3?url'
 import introSfxUrl from '~/assets/audio/sfx/intro-start.mp3?url'
 import shootSfxUrl from '~/assets/audio/sfx/shoot-sfx.mp3?url'
@@ -83,6 +88,13 @@ export function useGameSession(canvasRef?: Ref<HTMLCanvasElement | null>) {
       muted: muted.value,
       shake: shakeEnabled.value,
       shipModelUrl: spaceshipModelUrl,
+      entityModelUrls: {
+        scout: scoutModelUrl,
+        interceptor: interceptorModelUrl,
+        heavy: heavyModelUrl,
+        asteroid: asteroidModelUrl,
+      },
+      bossModelUrl,
       sfx: { shoot: shootSfxUrl, explosion: explosionSfxUrl, intro: introSfxUrl },
     }
   }
@@ -155,6 +167,7 @@ export function useGameSession(canvasRef?: Ref<HTMLCanvasElement | null>) {
           renderStats: () => engine?.getRenderStats() ?? null,
           snapshot: () => engine?.getSnapshot() ?? null,
           shipModel: () => engine?.isShipModelLoaded() ?? false,
+          models: () => engine?.getLoadedModels() ?? [],
           sfx: () => engine?.getSfxState() ?? null,
         }
       }

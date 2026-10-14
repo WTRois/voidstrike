@@ -54,6 +54,19 @@ export const SHIP_MODEL = {
   yawRadians: Math.PI / 2,
 } as const
 
+/**
+ * Model GLB musuh/hazard/boss. Panjang ≈ 2× radius hitbox agar siluet
+ * sedikit melebihi hitbox yang adil (PRD §11.5). Model musuh berhidung
+ * +Y → roll +90° merebahkannya menghadap −X (ke arah pemain).
+ */
+export const ENTITY_MODEL = {
+  scout: { targetLength: 1.4, yawRadians: 0, rollRadians: Math.PI / 2 },
+  interceptor: { targetLength: 1.5, yawRadians: 0, rollRadians: Math.PI / 2 },
+  heavy: { targetLength: 2.0, yawRadians: 0, rollRadians: Math.PI / 2 },
+  asteroid: { targetLength: 1.7, yawRadians: 0, rollRadians: 0 },
+  boss: { targetLength: 3.0, yawRadians: 0, rollRadians: Math.PI / 2 },
+} as const
+
 /** Sampel SFX (HTMLAudio pool); synth tetap fallback bila file gagal. */
 export const AUDIO = {
   shootPoolSize: 4,

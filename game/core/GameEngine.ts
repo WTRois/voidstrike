@@ -1,8 +1,19 @@
 import * as THREE from 'three'
 
-import { BOSS, FX, PICKUP, PLAYER, POOLS, PRIMARY, RENDER, SPECIAL } from '../config/gameBalance'
+import {
+  BOSS,
+  ENTITY_MODEL,
+  FX,
+  PICKUP,
+  PLAYER,
+  POOLS,
+  PRIMARY,
+  RENDER,
+  SPECIAL,
+} from '../config/gameBalance'
 import type { EngineStatus, GameSnapshot, QualityPreset, WorldBounds } from '../types/game'
 import { createPlaceholderPlayerShip } from '../assets/createPlaceholderPlayerShip'
+import { loadModel, normalizeModel } from '../assets/loadEntityModels'
 import { loadPlayerShipModel } from '../assets/loadPlayerShip'
 import {
   createEnemyProjectileMesh,
@@ -56,6 +67,10 @@ export interface GameEngineOptions {
   shake?: boolean
   /** URL model GLB pemain (Vite ?url dari app/assets); kosong = placeholder. */
   shipModelUrl?: string
+  /** URL model GLB musuh/hazard per kind; kind tanpa URL = placeholder. */
+  entityModelUrls?: Partial<Record<'scout' | 'interceptor' | 'heavy' | 'asteroid', string>>
+  /** URL model GLB boss; kosong = placeholder. */
+  bossModelUrl?: string
   /** URL sampel SFX; kosong = synth murni. */
   sfx?: SfxSampleUrls
 }
@@ -123,6 +138,7 @@ export class GameEngine {
   private readonly player = new PlayerShip()
   private readonly ship: THREE.Group
   private shipModelLoaded = false
+  private readonly loadedModels: string[] = []
   private lastShipX = 0
   private lastShipY = 0
   private readonly projectiles = new ProjectilePool()
@@ -218,6 +234,12 @@ export class GameEngine {
     this.scene.add(this.ship)
     if (options.shipModelUrl !== undefined && options.shipModelUrl !== '') {
       void this.attachShipModel(options.shipModelUrl)
+    }
+    if (options.entityModelUrls !== undefined) {
+      void this.attachEntityModels(options.entityModelUrls)
+    }
+    if (options.bossModelUrl !== undefined && options.bossModelUrl !== '') {
+      void this.attachBossModel(options.bossModelUrl)
     }
 
     for (let i = 0; i < POOLS.maxPlayerProjectiles; i += 1) {
@@ -341,6 +363,11 @@ export class GameEngine {
   /** True bila model GLB pemain berhasil dipasang (debug/smoke Tahap 7). */
   isShipModelLoaded(): boolean {
     return this.shipModelLoaded
+  }
+
+  /** Daftar kind model GLB yang berhasil dipasang (smoke test dev). */
+  getLoadedModels(): string[] {
+    return [...this.loadedModels]
   }
 
   /** Buka kunci audio (wajib dari gesture pengguna). */
@@ -965,6 +992,86 @@ export class GameEngine {
     model.name = 'player-ship-model'
     this.ship.add(model)
     this.shipModelLoaded = true
+  }
+
+  /**
+   * Pasang model GLB musuh/hazard ke semua slot pool. Anak placeholder
+   * `kind-X` yang tergantikan dibuang (kontrak sync by-name tetap utuh;
+   * kind tanpa URL, mis. mine, tetap placeholder).
+   */
+  private async attachEntityModels(
+    urls: NonNullable<GameEngineOptions['entityModelUrls']>,
+  ): Promise<void> {
+    const kinds = Object.keys(urls) as Array<
+      keyof NonNullable<GameEngineOptions['entityModelUrls']>
+    >
+    const templates = new Map<string, THREE.Group>()
+    for (const kind of kinds) {
+      const url = urls[kind]
+      if (url === undefined || url === '') {
+        continue
+      }
+      const config = ENTITY_MODEL[kind]
+      const scene = await loadModel(url)
+      if (scene !== null) {
+        templates.set(
+          kind,
+          normalizeModel(scene, {
+            targetLength: config.targetLength,
+            yawRadians: config.yawRadians,
+            rollRadians: config.rollRadians,
+            name: `kind-${kind}`,
+            forwardX: -1,
+          }),
+        )
+      }
+    }
+    if (this.disposed) {
+      for (const template of templates.values()) {
+        disposeObject3D(template)
+      }
+      return
+    }
+    for (const [kind, template] of templates) {
+      for (const slot of this.enemyMeshes) {
+        const old = slot.getObjectByName(`kind-${kind}`)
+        if (old !== undefined) {
+          slot.remove(old)
+          disposeObject3D(old)
+        }
+        const clone = template.clone(true)
+        clone.name = `kind-${kind}`
+        slot.add(clone)
+      }
+      disposeObject3D(template)
+      this.loadedModels.push(kind)
+    }
+  }
+
+  /** Pasang model GLB boss; gagal → placeholder tetap. */
+  private async attachBossModel(url: string): Promise<void> {
+    const scene = await loadModel(url)
+    if (this.disposed) {
+      if (scene !== null) {
+        disposeObject3D(scene)
+      }
+      return
+    }
+    if (scene === null) {
+      return
+    }
+    const model = normalizeModel(scene, {
+      targetLength: ENTITY_MODEL.boss.targetLength,
+      yawRadians: ENTITY_MODEL.boss.yawRadians,
+      rollRadians: ENTITY_MODEL.boss.rollRadians,
+      name: 'boss-model',
+      forwardX: -1,
+    })
+    for (const child of [...this.bossMesh.children]) {
+      child.visible = false
+    }
+    this.bossMesh.add(model)
+    this.loadedModels.push('boss')
   }
 
   private syncEntityMeshes(): void {

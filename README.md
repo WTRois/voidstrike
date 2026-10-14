@@ -3,7 +3,7 @@
 3D side-scrolling arcade shooter — single-player, tanpa login.
 Stack wajib (PRD §3): **Nuxt 4 + Vue 3 + TypeScript strict + Three.js + Bun**.
 
-Status: **Tahap 7 — fully-3D** (model GLB pemain, SFX MP3 + fallback synth, parallax 3 lapis + nebula, kamera perspektif, 121 unit test, E2E + profiling terverifikasi, build + static OK).
+Status: **Tahap 7 — fully-3D + semua model GLB** (pemain, 3 musuh, asteroid, boss; SFX MP3 + fallback synth, parallax 3 lapis + nebula, kamera perspektif, 126 unit test, E2E + profiling terverifikasi, build + static OK).
 
 ## Prasyarat
 
@@ -28,7 +28,7 @@ Urutan verifikasi minimum (PRD §20): `bun install` → `bun run typecheck` → 
 
 ## Testing
 
-- **Unit (Vitest, node):** 27 file / 121 test — state machine, input (keyboard + pointer via fake target), movement, projectile/enemy/missile/pickup pools, combat + special, health, collision, score, wave (+alur headless wave 1→4), boss, starfield (+nebula/fokus-Y), kamera perspektif, scene, placeholder visual, normalisasi GLB, ring, muzzle, audio hibrida (no-op aman + fallback synth), storage (valid/corrupt/penuh/nonaktif/reset).
+- **Unit (Vitest, node):** 27 file / 126 test — state machine, input (keyboard + pointer via fake target), movement, projectile/enemy/missile/pickup pools, combat + special, health, collision, score, wave (+alur headless wave 1→4), boss, starfield (+nebula/fokus-Y), kamera perspektif, scene, placeholder visual, normalisasi + merge GLB, ring, muzzle, audio hibrida (no-op aman + fallback synth), storage (valid/corrupt/penuh/nonaktif/reset).
 - **Tidak diuji di node (butuh WebGL/DOM):** konstruksi/dispose `GameEngine`, sync mesh, audio nyata. Diganti smoke browser Playwright: menu → main → pause → mati → best → reload → restart 9×, boss wave via `?wave=3`, portrait + landscape, FPS/draw calls (menu 60/16, combat 60/29, boss 60/46), 0 console error.
 - **Hook playtesting:** `?wave=N` (1–99) untuk melompat ke wave boss tanpa main 10 menit.
 

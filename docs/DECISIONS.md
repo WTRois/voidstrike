@@ -3,6 +3,15 @@
 Catatan keputusan teknis kecil yang belum ditentukan PRD (PRD §0 poin 10).
 Pilih opsi paling sederhana, maintainable, ringan.
 
+## Tahap 7 (lanjutan) — Model musuh, hazard dan boss (2026-10-14)
+
+- **5 GLB dipasang ke slot pool yang sama** (`scout/interceptor/heavy/asteroid` + `boss-01`): template dinormalisasi sekali, tiap slot memakai `clone(true)` berbagi geometri/material. Kontrak sync by-name (`kind-X`) tak berubah; mine tetap placeholder (tak ada file).
+- **Orientasi asli model musuh = hidung +Y** (bukan +Z seperti kapal pemain): `rollRadians: +90°` merebahkannya menghadap −X. Diverifikasi via screenshot — musuh horizontal menghadap pemain, bukan vertikal.
+- **Bug recenter tertangkap unit test baru**: center diukur pra-skala tapi shift diterapkan pasca-skala → visual meleset hingga 0,6 unit dari hitbox. Perbaikan: skala → ukur ulang → shift. Pelajaran: hitbox-vs-visual offset sekecil apa pun harus diuji, bukan diasumsikan.
+- **Merge mesh per material saat load** (no-skin terkonfirmasi via parse JSON GLB): musuh 65–140 mesh → ±jumlah material. Draw call combat 394 → 56, geometri 164 → 37; tris tetap 205K (2 asteroid 82K-tri) — 60,3 FPS bahkan di SwiftShader, aman untuk GPU nyata.
+- **`mergeStaticMeshes` murni + teruji node** (gabung sematerial, bake transform, atribut disamakan, skinned/morph dipertahankan). Node non-mesh GLB (light/kamera) sengaja dibuang — rig 3-light scene tetap satu-satunya pencahayaan.
+- **Insiden dev-only (bukan bug kode)**: Vite HMR gagal resolve 1 import saat file GLB disalin bertahap mid-session; boot bersih = 0 error, `nuxt build` selalu hijau. Tidak ada perubahan kode; pelajaran: tambah aset besar saat dev server mati atau restart sesudahnya.
+
 ## Tahap 7 — Fully-3D, GLB, SFX dan parallax (2026-10-14)
 
 - **Kamera: Orthographic → Perspective** (FOV diturunkan dari `WORLD.halfHeight` + `RENDER.cameraZ` sehingga batas dunia bidang z=0 identik — fairness collision, zona pemain, dan spawn tidak berubah; test kamera lama lolos tanpa ubah angka). Alasan: pengguna meminta fully-3D; layer parallax kini punya gerak-semu kedalaman nyata + model GLB terlihat volumetrik.
